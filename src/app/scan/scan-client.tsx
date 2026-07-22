@@ -20,19 +20,36 @@ export default function ScanClient() {
   const [manualValue, setManualValue] = useState('');
   const [starting, setStarting] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  // Ref flag to prevent re-entrancy in stop() — avoids race conditions
+  // where stop() is called twice in quick succession (e.g. on decode + unmount).
+  const stoppingRef = useRef(false);
   const containerId = 'qr-reader';
 
   const stop = async () => {
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.stop();
-        await scannerRef.current.clear();
-      } catch {
-        /* ignore */
+    if (stoppingRef.current) return;
+    stoppingRef.current = true;
+    try {
+      if (scannerRef.current) {
+        const s = scannerRef.current;
+        scannerRef.current = null;
+        try {
+          // stop() can throw if already stopped — guard it
+          if (s.isScanning) {
+            await s.stop();
+          }
+        } catch {
+          /* ignore — already stopped */
+        }
+        try {
+          await s.clear();
+        } catch {
+          /* ignore */
+        }
       }
-      scannerRef.current = null;
+      setScanning(false);
+    } finally {
+      stoppingRef.current = false;
     }
-    setScanning(false);
   };
 
   /** Navigate to the verification page from a decoded QR payload or manual input */
@@ -203,18 +220,30 @@ export default function ScanClient() {
         </div>
 
         <Card className="bg-zinc-950 border-zinc-800 p-4">
-          {/* Camera viewport */}
-          <div
-            id={containerId}
-            className="w-full aspect-square bg-black rounded-md overflow-hidden flex items-center justify-center relative"
-          >
+          {/*
+            Camera viewport — IMPORTANT architecture note:
+            The `#qr-reader` div is the mount point used by html5-qrcode, which
+            injects its own <video> element inside it. React must NEVER render
+            children inside that div, otherwise React's reconciler will try to
+            removeChild on nodes that html5-qrcode has already moved/replaced,
+            causing "NotFoundError: The object can not be found here" runtime
+            errors. So `#qr-reader` is an EMPTY sibling of the React-controlled
+            overlays below, not their parent.
+          */}
+          <div className="relative w-full aspect-square bg-black rounded-md overflow-hidden">
+            {/* Scanner mount point — React renders NO children here */}
+            <div id={containerId} className="absolute inset-0" />
+
+            {/* React-controlled overlays — siblings of #qr-reader, not children */}
             {!scanning && (
-              <div className="text-zinc-600 text-center p-6">
-                <Camera className="mx-auto mb-3" size={48} />
-                <p className="text-sm">
-                  Presiona <span className="text-[#00FF88] font-bold">Iniciar cámara</span> para
-                  escanear el QR del asistente.
-                </p>
+              <div className="absolute inset-0 flex items-center justify-center text-zinc-600 text-center p-6 pointer-events-none">
+                <div>
+                  <Camera className="mx-auto mb-3" size={48} />
+                  <p className="text-sm">
+                    Presiona <span className="text-[#00FF88] font-bold">Iniciar cámara</span> para
+                    escanear el QR del asistente.
+                  </p>
+                </div>
               </div>
             )}
             {scanning && (

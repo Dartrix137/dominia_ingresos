@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,9 +9,9 @@ import { toast } from 'sonner';
 import { Lock } from 'lucide-react';
 
 export default function LoginPageClient({ callback }: { callback: string }) {
-  const router = useRouter();
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,9 +27,12 @@ export default function LoginPageClient({ callback }: { callback: string }) {
         toast.error(data.error || 'Error al iniciar sesión');
         return;
       }
-      toast.success('Acceso concedido');
-      router.push(callback);
-      router.refresh();
+      // Use a full-page navigation instead of router.push + router.refresh.
+      // The client-side router can race with the cookie being set, causing
+      // the dashboard to bounce back to /login. A full page load guarantees
+      // the cookie is sent with the next request.
+      setRedirecting(true);
+      window.location.href = callback;
     } finally {
       setBusy(false);
     }
@@ -71,10 +73,10 @@ export default function LoginPageClient({ callback }: { callback: string }) {
           </div>
           <Button
             type="submit"
-            disabled={busy || pin.length < 1}
+            disabled={busy || redirecting || pin.length < 1}
             className="w-full bg-[#00FF88] text-black hover:bg-[#00cc6f] font-bold"
           >
-            {busy ? 'Verificando...' : 'INGRESAR'}
+            {redirecting ? 'Redirigiendo...' : busy ? 'Verificando...' : 'INGRESAR'}
           </Button>
         </form>
       </Card>

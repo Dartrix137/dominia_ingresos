@@ -1,5 +1,5 @@
-import DashboardClient from './dashboard-client';
+import DashboardClientLoader from './dashboard-client-loader';
 
 export default async function Home() {
-  return <DashboardClient />;
+  return <DashboardClientLoader />;
 }

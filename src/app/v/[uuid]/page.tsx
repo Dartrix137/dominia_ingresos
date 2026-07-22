@@ -1,15 +1,12 @@
-import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { isStaffAuthenticated } from '@/lib/auth';
 import VerifyClient from './verify-client';
 
 /**
  * Public verification page (scanned QR lands here).
  *
- * IMPORTANT: This page requires staff auth. If the staff is not authenticated,
- * they are redirected to login with a callback to this URL. After login, they
- * are returned here automatically. This prevents attendees from "self-checking-in"
- * by scanning their own QR before arriving at the event.
+ * No authentication required — anyone who scans the QR will see the
+ * attendee's data and check-in status, and the "MARCAR INGRESO" /
+ * "REVERTIR INGRESO" buttons are enabled for everyone.
  */
 export default async function VerifyPage({
   params,
@@ -17,14 +14,7 @@ export default async function VerifyPage({
   params: Promise<{ uuid: string }>;
 }) {
   const { uuid } = await params;
-  const authed = await isStaffAuthenticated();
 
-  if (!authed) {
-    // Redirect to login with callback
-    redirect(`/login?callback=${encodeURIComponent(`/v/${uuid}`)}`);
-  }
-
-  // Look up attendee
   const attendee = await db.attendee.findUnique({
     where: { uuid },
     include: {

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { isStaffAuthenticated } from '@/lib/auth';
 
 /**
  * GET /api/stats
@@ -10,14 +9,9 @@ import { isStaffAuthenticated } from '@/lib/auth';
  *   - hourly check-in distribution (for "hora pico" chart)
  */
 export async function GET() {
-  if (!(await isStaffAuthenticated())) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  }
-
   const total = await db.attendee.count();
   const localities = ['VIP', 'General Baja', 'General Alta'] as const;
 
-  // Active check-ins (not reverted)
   const activeCheckIns = await db.checkIn.findMany({
     where: { revertedAt: null },
     include: { attendee: { select: { locality: true } } },
@@ -26,7 +20,6 @@ export async function GET() {
   const checkedIn = activeCheckIns.length;
   const pending = total - checkedIn;
 
-  // Per-locality breakdown
   const perLocality: Record<string, { total: number; checkedIn: number; pending: number }> = {};
   for (const loc of localities) {
     perLocality[loc] = { total: 0, checkedIn: 0, pending: 0 };
@@ -43,7 +36,6 @@ export async function GET() {
     perLocality[loc].pending = perLocality[loc].total - perLocality[loc].checkedIn;
   }
 
-  // Hourly distribution (hora pico)
   const hourly: Record<number, number> = {};
   for (let h = 0; h < 24; h++) hourly[h] = 0;
   for (const c of activeCheckIns) {

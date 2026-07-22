@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
-  ScanLine, LogOut, UserPlus, Upload, Search, Download, Edit, Trash2,
+  ScanLine, UserPlus, Upload, Search, Download, Edit, Trash2,
   RefreshCw, Users, CheckCircle2, Clock, TrendingUp, Crown, Ticket,
 } from 'lucide-react';
 import { EVENT_CONFIG } from '@/lib/constants';
@@ -86,12 +86,6 @@ export default function DashboardClient() {
     return () => clearTimeout(t);
   }, [load]);
 
-  const logout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
-    router.refresh();
-  };
-
   return (
     <div className="min-h-screen bg-black text-zinc-100">
       {/* Top bar */}
@@ -117,9 +111,6 @@ export default function DashboardClient() {
             </Button>
             <Button variant="ghost" size="icon" onClick={() => load()} title="Refrescar">
               <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={logout} title="Cerrar sesión">
-              <LogOut size={18} />
             </Button>
           </div>
         </div>

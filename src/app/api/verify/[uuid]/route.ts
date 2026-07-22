@@ -1,24 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { isStaffAuthenticated } from '@/lib/auth';
 
 /**
  * GET /api/verify/[uuid]
- * Verifies a ticket by its public UUID. Requires staff session.
+ * Verifies a ticket by its public UUID.
  *
  * Returns:
  *   - 200 { valid: true, attendee, status: 'pending' | 'in', checkedInAt }
- *   - 401 { error: 'No autorizado' } (no staff session)
  *   - 404 { valid: false, error: 'Registro no encontrado' }
  */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ uuid: string }> },
 ) {
-  if (!(await isStaffAuthenticated())) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  }
-
   const { uuid } = await params;
   if (!uuid) {
     return NextResponse.json({ valid: false, error: 'UUID vacío' }, { status: 400 });

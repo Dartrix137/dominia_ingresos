@@ -1,19 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { isStaffAuthenticated } from '@/lib/auth';
 
 /**
  * POST /api/attendees/[id]/check-in
  * Marks the attendee as having entered the event.
- * Returns whether the attendee was already checked in.
  */
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await isStaffAuthenticated())) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  }
   const { id } = await params;
 
   const attendee = await db.attendee.findUnique({

@@ -20,11 +20,3 @@ export const EVENT_CONFIG = {
 
 export type Locality = (typeof EVENT_CONFIG.localities)[number];
 
-// Staff PIN — change before production
-export const STAFF_PIN = "4729";
-
-// Cookie name for staff session
-export const SESSION_COOKIE = "dominia_staff_session";
-
-// Session validity (in ms) — 12 hours
-export const SESSION_TTL_MS = 12 * 60 * 60 * 1000;

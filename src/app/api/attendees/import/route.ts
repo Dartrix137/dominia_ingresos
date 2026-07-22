@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { isStaffAuthenticated } from '@/lib/auth';
 import { EVENT_CONFIG, type Locality } from '@/lib/constants';
-import { generateTicketPdf } from '@/lib/pdf';
 import Papa from 'papaparse';
 
 function normalizeLocality(input: string): string | null {
@@ -36,17 +34,9 @@ type ImportResult = {
 /**
  * POST /api/attendees/import
  * Accepts a CSV body (text/csv) with columns: fullName, cedula, locality.
- * Header row is required. Returns a per-row report and (optionally) a zip
- * of generated PDFs.
- *
- * For simplicity we return JSON with the per-row report. The frontend can
- * then fetch PDFs individually via /api/pdf/[id].
+ * Header row is required. Returns a per-row report.
  */
 export async function POST(req: NextRequest) {
-  if (!(await isStaffAuthenticated())) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  }
-
   try {
     const contentType = req.headers.get('content-type') || '';
     if (!contentType.includes('text/csv') && !contentType.includes('application/json')) {
@@ -58,7 +48,6 @@ export async function POST(req: NextRequest) {
 
     const rawBody = await req.text();
 
-    // Accept either raw CSV or JSON { csv: "..." }
     let csvText = rawBody;
     if (contentType.includes('application/json')) {
       try {
@@ -73,9 +62,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'CSV vacío' }, { status: 400 });
     }
 
-    // Parse CSV. Headers are normalized: trim + lowercase + camelCase mapping.
-    // We accept either "fullName" or "fullname" or "nombre" as the name column,
-    // "cedula" / "documento" as the cedula column, etc.
+    // Header mapping accepts various common column names
     const HEADER_MAP: Record<string, keyof ParsedRow> = {
       fullname: 'fullName',
       'full name': 'fullName',
@@ -140,7 +127,6 @@ export async function POST(req: NextRequest) {
     for (const row of rows) {
       const raw = `${row.fullName},${row.cedula},${row.locality}`;
 
-      // Validate
       if (!row.fullName || !row.cedula || !row.locality) {
         result.errors.push({
           row: row._rowNumber,
@@ -162,7 +148,6 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Duplicate within the same file
       if (seenInFile.has(row.cedula)) {
         result.errors.push({
           row: row._rowNumber,
@@ -173,7 +158,6 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Duplicate in database
       if (existingSet.has(row.cedula)) {
         result.errors.push({
           row: row._rowNumber,
@@ -217,25 +201,4 @@ export async function POST(req: NextRequest) {
     console.error('Import error:', e);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
-}
-
-/**
- * Optionally: trigger PDF generation for all imported attendees.
- * This helper is exported so the same logic could be used from /api/attendees/import
- * to also generate PDFs in a follow-up request.
- */
-export async function generatePdfsForAttendees(
-  attendees: Array<{ id: string; uuid: string; fullName: string; cedula: string; locality: string }>,
-  baseUrl: string,
-) {
-  const pdfs: Array<{ id: string; cedula: string; pdf: Buffer }> = [];
-  for (const a of attendees) {
-    const qrPayload = `${baseUrl}/v/${a.uuid}`;
-    const pdf = await generateTicketPdf({
-      attendee: { fullName: a.fullName, cedula: a.cedula, locality: a.locality },
-      qrPayload,
-    });
-    pdfs.push({ id: a.id, cedula: a.cedula, pdf });
-  }
-  return pdfs;
 }

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { isStaffAuthenticated } from '@/lib/auth';
 import { EVENT_CONFIG, type Locality } from '@/lib/constants';
 
 function normalizeLocality(input: string): string | null {
@@ -16,9 +15,6 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await isStaffAuthenticated())) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  }
   const { id } = await params;
   try {
     await db.attendee.delete({ where: { id } });
@@ -33,9 +29,6 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await isStaffAuthenticated())) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  }
   const { id } = await params;
   try {
     const body = await req.json();
@@ -49,7 +42,6 @@ export async function PATCH(
 
     if (typeof fullName === 'string' && fullName.trim()) data.fullName = fullName.trim();
     if (typeof cedula === 'string' && cedula.trim()) {
-      // Check cedula isn't used by another attendee
       const other = await db.attendee.findUnique({ where: { cedula: cedula.trim() } });
       if (other && other.id !== id) {
         return NextResponse.json(

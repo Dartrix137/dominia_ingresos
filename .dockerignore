@@ -2,11 +2,7 @@ node_modules
 .next
 .git
 db
-upload
-download
-mini-services
-.zscripts
-examples
+backups
 *.log
 .env
 .env.*

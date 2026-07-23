@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+db
+upload
+download
+mini-services
+.zscripts
+examples
+*.log
+.env
+.env.*
+!.env.example

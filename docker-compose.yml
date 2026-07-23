@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dominia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dominia}
+      POSTGRES_DB: ${POSTGRES_DB:-dominia}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dominia}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      # Bound to localhost only, on 5433 to avoid clashing with any
+      # native Postgres already running on the host. The app reaches
+      # Postgres over the internal compose network on 5432 regardless;
+      # this mapping is just for local psql/backup access.
+      - "127.0.0.1:5433:5432"
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dominia}:${POSTGRES_PASSWORD:-dominia}@db:5432/${POSTGRES_DB:-dominia}
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

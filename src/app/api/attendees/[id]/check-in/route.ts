@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
+import { idParamSchema } from '@/lib/validation';
 
 /**
  * POST /api/attendees/[id]/check-in
@@ -17,6 +18,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  if (!idParamSchema.safeParse(id).success) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+  }
 
   const attendee = await db.attendee.findUnique({
     where: { id },

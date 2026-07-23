@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { generateTicketPdf } from '@/lib/pdf';
+import { idParamSchema } from '@/lib/validation';
 
 /**
  * GET /api/pdf/[id]
@@ -11,6 +12,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  if (!idParamSchema.safeParse(id).success) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+  }
 
   const attendee = await db.attendee.findUnique({ where: { id } });
   if (!attendee) {

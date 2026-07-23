@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { EVENT_CONFIG, type Locality } from '@/lib/constants';
-
-function normalizeLocality(input: string): string | null {
-  const trimmed = input.trim().toLowerCase();
-  for (const loc of EVENT_CONFIG.localities) {
-    if (loc.toLowerCase() === trimmed) return loc;
-  }
-  return null;
-}
+import type { Locality } from '@/lib/constants';
+import { idParamSchema, normalizeLocality, updateAttendeeSchema } from '@/lib/validation';
 
 /** DELETE /api/attendees/[id] — remove an attendee */
 export async function DELETE(
@@ -16,6 +9,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  if (!idParamSchema.safeParse(id).success) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+  }
   try {
     await db.attendee.delete({ where: { id } });
     return NextResponse.json({ ok: true });
@@ -30,28 +26,37 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  if (!idParamSchema.safeParse(id).success) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+  }
   try {
-    const body = await req.json();
-    const { fullName, cedula, locality } = body;
+    const parsed = updateAttendeeSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? 'Datos inválidos' },
+        { status: 400 },
+      );
+    }
+    const { fullName, cedula, locality } = parsed.data;
 
     const data: {
       fullName?: string;
       cedula?: string;
-      locality?: string;
+      locality?: Locality;
     } = {};
 
-    if (typeof fullName === 'string' && fullName.trim()) data.fullName = fullName.trim();
-    if (typeof cedula === 'string' && cedula.trim()) {
-      const other = await db.attendee.findUnique({ where: { cedula: cedula.trim() } });
+    if (fullName) data.fullName = fullName;
+    if (cedula) {
+      const other = await db.attendee.findUnique({ where: { cedula } });
       if (other && other.id !== id) {
         return NextResponse.json(
-          { error: `Cédula ya registrada para otro asistente: ${cedula.trim()}` },
+          { error: `Cédula ya registrada para otro asistente: ${cedula}` },
           { status: 409 },
         );
       }
-      data.cedula = cedula.trim();
+      data.cedula = cedula;
     }
-    if (typeof locality === 'string' && locality.trim()) {
+    if (locality) {
       const norm = normalizeLocality(locality);
       if (!norm) {
         return NextResponse.json(

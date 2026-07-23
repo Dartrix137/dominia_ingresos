@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { EVENT_CONFIG, type Locality } from '@/lib/constants';
 import Papa from 'papaparse';
-
-function normalizeLocality(input: string): string | null {
-  const trimmed = input.trim().toLowerCase();
-  for (const loc of EVENT_CONFIG.localities) {
-    if (loc.toLowerCase() === trimmed) return loc;
-  }
-  return null;
-}
+import { getClientIp, rateLimit } from '@/lib/rate-limit';
+import { normalizeLocality } from '@/lib/validation';
 
 type ParsedRow = {
   fullName: string;
@@ -37,6 +30,14 @@ type ImportResult = {
  * Header row is required. Returns a per-row report.
  */
 export async function POST(req: NextRequest) {
+  const limit = rateLimit(`import:${getClientIp(req)}`, 5, 60_000);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes, intenta de nuevo en un momento' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } },
+    );
+  }
+
   try {
     const contentType = req.headers.get('content-type') || '';
     if (!contentType.includes('text/csv') && !contentType.includes('application/json')) {

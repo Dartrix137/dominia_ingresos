@@ -2,14 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { EVENT_CONFIG, type Locality } from '@/lib/constants';
 import { generateTicketPdf } from '@/lib/pdf';
-
-function normalizeLocality(input: string): string | null {
-  const trimmed = input.trim().toLowerCase();
-  for (const loc of EVENT_CONFIG.localities) {
-    if (loc.toLowerCase() === trimmed) return loc;
-  }
-  return null;
-}
+import { createAttendeeSchema, normalizeLocality } from '@/lib/validation';
 
 /**
  * GET /api/attendees?search=...&locality=...&status=...
@@ -78,16 +71,16 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { fullName, cedula, locality, withPdf } = body;
+    const parsed = createAttendeeSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? 'Datos inválidos' },
+        { status: 400 },
+      );
+    }
+    const { fullName, cedula, locality, withPdf } = parsed.data;
 
-    if (!fullName || typeof fullName !== 'string' || !fullName.trim()) {
-      return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 });
-    }
-    if (!cedula || typeof cedula !== 'string' || !cedula.trim()) {
-      return NextResponse.json({ error: 'Cédula requerida' }, { status: 400 });
-    }
-    const normLoc = normalizeLocality(locality ?? '');
+    const normLoc = normalizeLocality(locality);
     if (!normLoc) {
       return NextResponse.json(
         { error: 'Localidad inválida (debe ser VIP, General Baja o General Alta)' },
@@ -96,22 +89,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Check for duplicate cedula
-    const existing = await db.attendee.findUnique({
-      where: { cedula: cedula.trim() },
-    });
+    const existing = await db.attendee.findUnique({ where: { cedula } });
     if (existing) {
       return NextResponse.json(
-        { error: `Ya existe un asistente con cédula ${cedula.trim()}` },
+        { error: `Ya existe un asistente con cédula ${cedula}` },
         { status: 409 },
       );
     }
 
     const attendee = await db.attendee.create({
-      data: {
-        fullName: fullName.trim(),
-        cedula: cedula.trim(),
-        locality: normLoc,
-      },
+      data: { fullName, cedula, locality: normLoc },
     });
 
     // Build verification URL

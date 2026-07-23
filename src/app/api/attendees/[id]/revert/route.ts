@@ -3,7 +3,11 @@ import { db } from '@/lib/db';
 
 /**
  * POST /api/attendees/[id]/revert
- * Reverts (undoes) the most recent active check-in for the attendee.
+ * Reverts (undoes) the active check-in for the attendee, if any.
+ *
+ * Uses updateMany scoped to active:true so the revert is a single atomic
+ * statement — concurrent reverts for the same attendee collapse into one
+ * effective update instead of racing on a separate read.
  */
 export async function POST(
   _req: NextRequest,
@@ -13,27 +17,16 @@ export async function POST(
 
   const attendee = await db.attendee.findUnique({
     where: { id },
-    include: {
-      checkIns: {
-        where: { revertedAt: null },
-        orderBy: { checkedAt: 'desc' },
-        take: 1,
-      },
-    },
+    select: { id: true },
   });
   if (!attendee) {
     return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
   }
 
-  const activeCheckIn = attendee.checkIns[0];
-  if (!activeCheckIn) {
-    return NextResponse.json({ ok: true, wasCheckedIn: false });
-  }
-
-  await db.checkIn.update({
-    where: { id: activeCheckIn.id },
-    data: { revertedAt: new Date() },
+  const { count } = await db.checkIn.updateMany({
+    where: { attendeeId: id, active: true },
+    data: { active: null, revertedAt: new Date() },
   });
 
-  return NextResponse.json({ ok: true, wasCheckedIn: true });
+  return NextResponse.json({ ok: true, wasCheckedIn: count > 0 });
 }

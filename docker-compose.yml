@@ -31,6 +31,39 @@ services:
       NODE_ENV: production
     ports:
       - "3000:3000"
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Periodic pg_dump to a host-mounted directory. Simple and dependency-free,
+  # matched to the scale of a single event rather than a full backup service.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-dominia}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-dominia}
+      PGDATABASE: ${POSTGRES_DB:-dominia}
+    volumes:
+      - ./backups:/backups
+    entrypoint:
+      - sh
+      - -c
+      - |
+        while true; do
+          FILE="/backups/dominia-$$(date +%Y%m%d-%H%M%S).sql.gz"
+          echo "Backing up to $$FILE"
+          pg_dump | gzip > "$$FILE"
+          find /backups -name 'dominia-*.sql.gz' -mtime +7 -delete
+          sleep 21600
+        done
 
 volumes:
   pgdata:

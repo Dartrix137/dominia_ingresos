@@ -38,6 +38,10 @@ yarn-error.log*
 db/*.db
 db/*.db-journal
 
+# Postgres backup dumps (contain real attendee PII)
+backups/*.sql.gz
+!backups/.gitkeep
+
 # vercel
 .vercel
 

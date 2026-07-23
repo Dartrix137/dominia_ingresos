@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Header mapping accepts various common column names
-    const HEADER_MAP: Record<string, keyof ParsedRow> = {
+    const HEADER_MAP: Record<string, 'fullName' | 'cedula' | 'locality'> = {
       fullname: 'fullName',
       'full name': 'fullName',
       nombre: 'fullName',

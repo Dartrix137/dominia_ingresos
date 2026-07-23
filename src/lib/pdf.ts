@@ -70,12 +70,12 @@ function drawBar(
 }
 
 /**
- * Generate a ticket PDF Buffer for one attendee.
+ * Generate a ticket PDF for one attendee.
  */
 export async function generateTicketPdf(data: {
   attendee: { fullName: string; cedula: string; locality: string };
   qrPayload: string;
-}): Promise<Buffer> {
+}): Promise<ArrayBuffer> {
   const { attendee, qrPayload } = data;
 
   // ---- Load cyborg hero image as PNG data URL ----
@@ -239,5 +239,5 @@ export async function generateTicketPdf(data: {
   doc.setFontSize(7);
   doc.text(EVENT_CONFIG.footer, PAGE_W / 2, footerY, { align: 'center' });
 
-  return Buffer.from(doc.output('arraybuffer'));
+  return doc.output('arraybuffer');
 }

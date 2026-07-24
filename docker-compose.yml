@@ -29,8 +29,10 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-dominia}:${POSTGRES_PASSWORD:-dominia}@db:5432/${POSTGRES_DB:-dominia}
       NODE_ENV: production
-    ports:
-      - "3000:3000"
+    # No host port published: Dokploy's Traefik reaches this container over
+    # its internal network by container port (3000), configured from the
+    # Domains tab in the Dokploy UI. Publishing 3000 directly on the VPS host
+    # would risk clashing with other apps sharing the same server.
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 15s

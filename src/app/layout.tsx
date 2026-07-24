@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "DOMINIA 1.0 — Control de Acceso",
   description: "Sistema interno de registro y verificación de asistentes para DOMINIA 1.0 | LSD",
+  icons: {
+    icon: "/favicon.webp",
+  },
 };
 
 export default function RootLayout({
